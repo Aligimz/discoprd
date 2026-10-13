@@ -1,0 +1,79 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>لوحة إدارة الطاقم</title>
+<style>
+:root{--bg:#0b0b0c;--p:#161618;--p2:#1f1f22;--b:#2c2c30;--g:#d4af37;--t:#ececec;--m:#8d8d94;--r:#e5534b;--ok:#3fb950}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font-family:Tahoma,"Segoe UI",sans-serif;display:flex;min-height:100vh}
+aside{width:230px;background:var(--p);border-left:1px solid var(--b);padding:18px 12px;position:sticky;top:0;height:100vh}
+aside h1{color:var(--g);font-size:17px;margin:0 8px 18px}aside a{display:block;padding:10px 12px;border-radius:8px;color:var(--m);cursor:pointer;margin-bottom:4px}
+aside a:hover,aside a.on{background:var(--p2);color:var(--g)}main{flex:1;padding:24px;max-width:1200px}
+h2{margin:0 0 16px;color:var(--g)}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:20px}
+.card{background:var(--p);border:1px solid var(--b);border-radius:12px;padding:16px}.card.click{cursor:pointer}.card.click:hover{border-color:var(--g)}
+.n{font-size:28px;color:var(--g);font-weight:700}.l{color:var(--m);font-size:13px}
+table{width:100%;border-collapse:collapse;background:var(--p);border:1px solid var(--b);border-radius:12px;overflow:hidden}
+th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--b);font-size:14px}th{color:var(--g);background:var(--p2)}tr.click{cursor:pointer}tr.click:hover{background:var(--p2)}
+input,select,textarea,button{background:var(--p2);color:var(--t);border:1px solid var(--b);border-radius:8px;padding:9px 11px;font:inherit}
+button{cursor:pointer}button.pri{background:var(--g);color:#111;border:0;font-weight:700}textarea{width:100%;min-height:70px}
+.bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}.tag{display:inline-block;padding:2px 9px;border-radius:99px;background:var(--p2);border:1px solid var(--b);font-size:12px;margin:2px}
+.warn{color:var(--r)}.ok{color:var(--ok)}.muted{color:var(--m)}.av{width:40px;height:40px;border-radius:50%;background:var(--p2);object-fit:cover}
+.empty,.err{padding:30px;text-align:center;color:var(--m)}.err{color:var(--r)}.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.login{margin:auto;text-align:center}.login a{display:inline-block;margin:6px;padding:12px 22px;background:var(--g);color:#111;border-radius:10px;text-decoration:none;font-weight:700}
+@media(max-width:800px){body{flex-direction:column}aside{width:100%;height:auto;position:static}.two{grid-template-columns:1fr}}
+</style></head><body><div id="app" class="login"><p class="muted">جارٍ التحميل…</p></div>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let ME,V='dash';
+const api=async(p,o={})=>{const r=await fetch('/api'+p,{headers:{'Content-Type':'application/json'},...o,body:o.body&&JSON.stringify(o.body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||r.status);return j};
+const can=k=>ME.perms.includes(k);
+const av=m=>m.avatar_hash?`https://cdn.discordapp.com/avatars/${m.discord_user_id}/${m.avatar_hash}.png?size=64`:'';
+async function boot(){try{ME=await api('/me');shell()}catch{$('#app').innerHTML=`<div><h2>لوحة إدارة الطاقم</h2><a href="/auth/login">الدخول عبر Discord</a><a href="/auth/demo">دخول تجريبي (DEMO)</a><p class="muted">الدخول التجريبي يعمل فقط عند DEMO=1</p></div>`}}
+function shell(){const tabs=[['dash','لوحة المالك'],['staff','الإداريون'],['roles','الرتب والمسؤوليات'],['dec','القرارات'],['audit','سجل التدقيق'],['sync','المزامنة']];
+$('#app').className='';$('#app').style.display='flex';$('#app').style.width='100%';
+$('#app').innerHTML=`<aside><h1>⚜ إدارة الطاقم</h1>${tabs.map(t=>`<a data-v="${t[0]}">${t[1]}</a>`).join('')}<a onclick="fetch('/auth/logout',{method:'POST'}).then(()=>location.reload())">تسجيل الخروج</a>${ME.demo?'<p class="warn" style="font-size:12px">وضع تجريبي</p>':''}</aside><main id="m"></main>`;
+document.querySelectorAll('aside a[data-v]').forEach(a=>a.onclick=()=>go(a.dataset.v));go('dash')}
+async function go(v,x){V=v;document.querySelectorAll('aside a[data-v]').forEach(a=>a.classList.toggle('on',a.dataset.v==v));$('#m').innerHTML='<p class="muted">جارٍ التحميل…</p>';
+try{await views[v](x)}catch(e){$('#m').innerHTML=`<div class="err">${esc(e.message)}</div>`}}
+const views={
+async dash(){const d=await api('/dashboard');const c=(n,l,v,x)=>`<div class="card click" onclick="go('${v}',${x?`'${x}'`:''})"><div class="n">${n}</div><div class="l">${l}</div></div>`;
+$('#m').innerHTML=`<h2>لوحة المالك</h2><div class="grid">${c(d.members,'أعضاء السيرفر','staff')}${c(d.staff,'الإداريون','staff')}${c(d.unreviewedRoles,'رتب بلا مسؤوليات معتمدة','roles')}${c(d.openComplaints,'شكاوى مفتوحة','dec')}${c(d.overdueTasks,'مهام متأخرة','dec')}${c(d.newApplications,'طلبات توظيف جديدة','dec')}</div>
+<div class="card" style="margin-bottom:14px"><b>آخر مزامنة:</b> ${d.lastSync?`${d.lastSync.status} ${d.lastSync.finished_at?new Date(d.lastSync.finished_at).toLocaleString('ar'):''} ${esc(d.lastSync.error||'')}`:'<span class="warn">لم تتم المزامنة بعد</span>'}</div>
+<div class="two"><div><h3>الإداريون حسب الرتبة</h3><table><tr><th>الرتبة</th><th>العدد</th></tr>${d.byRole.map(r=>`<tr class="click" onclick="go('staff','${r.id}')"><td>${esc(r.name)} ${r.name_status!='confirmed'?'<span class="tag">غير مؤكد</span>':''}</td><td>${r.count}</td></tr>`).join('')}</table></div>
+<div><h3>حسب الأقسام</h3>${d.byDept.length?`<table><tr><th>القسم</th><th>العدد</th></tr>${d.byDept.map(r=>`<tr><td>${esc(r.name)}</td><td>${r.count}</td></tr>`).join('')}</table>`:'<div class="empty card">لم تتم إضافة أقسام</div>'}
+<h3>آخر القرارات</h3>${d.latestDecisions.length?`<table>${d.latestDecisions.map(r=>`<tr><td>${r.decision_no}</td><td>${r.type}</td><td>${r.exec_status}</td></tr>`).join('')}</table>`:'<div class="empty card">لا قرارات بعد</div>'}</div></div>`},
+async staff(role=''){const [roles,depts]=await Promise.all([api('/roles'),api('/departments')]);
+$('#m').innerHTML=`<h2>الإداريون</h2><div class="bar"><input id="s" placeholder="بحث: Username / الاسم / Discord ID / Role ID"><select id="r"><option value="">كل الرتب</option>${roles.map(r=>`<option value="${r.id}" ${r.id==role?'selected':''}>${esc(r.name_original)}</option>`).join('')}</select><select id="d"><option value="">كل الأقسام</option>${depts.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select><button class="pri" id="go">بحث</button></div><div id="list"></div>`;
+const load=async()=>{const l=await api(`/staff?search=${encodeURIComponent($('#s').value)}&role=${$('#r').value}&dept=${$('#d').value}`);
+$('#list').innerHTML=l.length?`<table><tr><th></th><th>الاسم</th><th>Username</th><th>Discord ID</th><th>الرتب</th><th>القسم</th><th>الحالة</th></tr>${l.map(p=>`<tr class="click" onclick="go('prof',${p.id})"><td>${av(p)?`<img class="av" src="${av(p)}">`:'<div class="av"></div>'}</td><td>${esc(p.global_name||p.nickname||'لم تتم المزامنة')}</td><td>${esc(p.username||'—')}</td><td>${p.discord_user_id}</td><td>${p.roles.map(r=>`<span class="tag">${esc(r)}</span>`).join('')}</td><td>${esc(p.dept||'—')}</td><td>${p.account_status}</td></tr>`).join('')}</table>`:'<div class="empty card">لا توجد نتائج. نفّذ مزامنة Discord أولاً، وحدّد الرتب الإدارية من صفحة الرتب.</div>'};
+$('#go').onclick=load;$('#s').onkeydown=e=>e.key=='Enter'&&load();load()},
+async prof(id){const p=await api('/staff/'+id),depts=await api('/departments');
+$('#m').innerHTML=`<button onclick="go('staff')">→ رجوع</button><div class="card" style="margin:12px 0;display:flex;gap:16px;align-items:center">${av(p)?`<img class="av" style="width:72px;height:72px" src="${av(p)}">`:'<div class="av" style="width:72px;height:72px"></div>'}<div><h2 style="margin:0">${esc(p.global_name||p.nickname||'لم تتم المزامنة')}</h2><div class="muted">@${esc(p.username||'—')} · ID ${p.discord_user_id}</div><div>${p.roles.filter(r=>!r.ended_at).map(r=>`<span class="tag">${esc(r.name_original)}</span>`).join('')}</div></div></div>
+<div class="two"><div class="card"><h3>البيانات الإدارية</h3><p class="muted">انضم: ${p.joined_at?new Date(p.joined_at).toLocaleDateString('ar'):'لم تتم المزامنة'} · آخر مزامنة: ${p.last_synced_at?new Date(p.last_synced_at).toLocaleString('ar'):'—'}</p>
+<label>المنصب</label><input id="pt" value="${esc(p.position_title||'')}"><label>القسم</label><select id="pd"><option value="">—</option>${depts.map(d=>`<option value="${d.id}" ${d.id==p.department_id?'selected':''}>${esc(d.name)}</option>`).join('')}</select>
+<label>الحالة</label><select id="ps">${['active','suspended','on_leave','archived'].map(s=>`<option ${s==p.account_status?'selected':''}>${s}</option>`).join('')}</select>
+${p.internal_notes!==undefined?`<label>ملاحظات داخلية</label><textarea id="pn">${esc(p.internal_notes||'')}</textarea>`:''}
+${can('staff.edit')?'<p><button class="pri" id="sv">حفظ</button></p>':''}</div>
+<div class="card"><h3>إصدار قرار</h3>${['promotion','demotion','warning','suspension','transfer','reactivation','dismissal'].some(t=>can({promotion:'staff.promote',demotion:'staff.promote',warning:'penalties.issue',suspension:'penalties.issue',transfer:'staff.edit',reactivation:'staff.edit',dismissal:'staff.archive'}[t]))?`<select id="dt">${['promotion','demotion','warning','suspension','transfer','reactivation','dismissal'].map(t=>`<option>${t}</option>`).join('')}</select><textarea id="dr" placeholder="السبب (مطلوب)"></textarea><p><button class="pri" id="dk">تسجيل القرار</button></p><p class="muted">القرار يُسجَّل في السجل فقط؛ لا يغيّر رتب Discord تلقائياً.</p>`:'<p class="muted">لا تملك صلاحية إصدار القرارات</p>'}</div></div>
+<h3>سجل القرارات</h3>${p.decisions.length?`<table>${p.decisions.map(d=>`<tr><td>${d.decision_no}</td><td>${d.type}</td><td>${esc(d.reason)}</td><td>${new Date(d.decided_at).toLocaleDateString('ar')}</td></tr>`).join('')}</table>`:'<div class="empty card">لا قرارات</div>'}
+<h3>سجل الرتب</h3><table>${p.roles.map(r=>`<tr><td>${esc(r.name_original)}</td><td>${new Date(r.assigned_at).toLocaleDateString('ar')}</td><td>${r.ended_at?'انتهت':'حالية'}</td></tr>`).join('')}</table>`;
+if($('#sv'))$('#sv').onclick=async()=>{try{await api('/staff/'+id,{method:'PATCH',body:{position_title:$('#pt').value,department_id:$('#pd').value||null,account_status:$('#ps').value,...($('#pn')?{internal_notes:$('#pn').value}:{})}});alert('تم الحفظ')}catch(e){alert(e.message)}};
+if($('#dk'))$('#dk').onclick=async()=>{try{const d=await api('/decisions',{method:'POST',body:{profile_id:id,type:$('#dt').value,reason:$('#dr').value}});alert('تم: '+d.decision_no);go('prof',id)}catch(e){alert(e.message)}}},
+async roles(){const [roles,dr]=await Promise.all([api('/roles'),can('roles.manage')?api('/discord-roles'):[]]);
+$('#m').innerHTML=`<h2>الرتب والمسؤوليات</h2><p class="muted">الترتيب في الجدول هو ترتيب القائمة الأولية وليس التسلسل الإداري. حدّد المستوى بنفسك.</p><table><tr><th>الرتبة</th><th>ربط Discord</th><th>المستوى</th><th>إدارية؟</th><th>المسؤوليات</th></tr>${roles.map(r=>`<tr><td>${esc(r.name_original)} ${r.name_status!='confirmed'?'<span class="tag">غير مؤكد</span>':''}</td>
+<td>${can('roles.manage')?`<select onchange="pr(${r.id},{discord_role_id:this.value})"><option value="">غير مربوطة</option>${dr.map(d=>`<option value="${d.role_id}" ${d.role_id==r.discord_role_id?'selected':''}>${esc(d.name)}</option>`).join('')}</select>`:esc(r.discord_name||'—')}</td>
+<td><input type="number" style="width:70px" value="${r.admin_level??''}" ${can('roles.manage')?'':'disabled'} onchange="pr(${r.id},{admin_level:this.value})"></td>
+<td><input type="checkbox" ${r.is_staff_role?'checked':''} ${can('roles.manage')?'':'disabled'} onchange="pr(${r.id},{is_staff_role:this.checked})"></td>
+<td><button onclick="go('resp',${r.id})">${r.resp_status=='approved'?'معتمدة':r.resp_status=='suggested'?'مقترحة':'غير محددة'}</button></td></tr>`).join('')}</table>`},
+async resp(id){const [r,pm]=await Promise.all([api(`/roles/${id}/responsibilities`),can('roles.manage')?api('/permissions'):null]);const x=r||{};
+const F=[['objective','هدف المنصب'],['core_duties','المهام الأساسية'],['daily_weekly','المهام اليومية والأسبوعية'],['limits','حدود الصلاحيات'],['forbidden','المهام غير المسموحة'],['promotion_rules','شروط الترقية'],['revocation_rules','شروط سحب الصلاحيات'],['kpis','مؤشرات الأداء'],['official_desc','الوصف الرسمي']];
+const have=pm?pm.granted.filter(g=>g.staff_role_id==id).map(g=>g.permission_key):[];
+$('#m').innerHTML=`<button onclick="go('roles')">→ رجوع</button><h2>مسؤوليات الرتبة ${x.status?`<span class="tag">${x.status=='approved'?'معتمدة':'مقترحة'}</span>`:''}</h2><div class="card">${F.map(f=>`<label>${f[1]}</label><textarea id="f_${f[0]}" ${can('roles.manage')?'':'disabled'}>${esc(x[f[0]]||'')}</textarea>`).join('')}${can('roles.manage')?`<p><button id="sg">حفظ كمقترح</button> <button class="pri" id="ap">اعتماد</button></p>`:''}</div>
+${pm?`<h3>الصلاحيات التقنية (منفصلة عن المسؤوليات)</h3><div class="card">${pm.all.map(p=>`<label style="display:inline-block;margin:4px 12px"><input type="checkbox" class="pk" value="${p.key}" ${have.includes(p.key)?'checked':''} ${can(p.key)?'':'disabled'}> ${esc(p.description)}${p.is_sensitive?' ⚠':''}</label>`).join('')}<p><button class="pri" id="sp">حفظ الصلاحيات</button></p></div>`:''}`;
+const save=a=>async()=>{const b={approve:a};F.forEach(f=>b[f[0]]=$('#f_'+f[0]).value);try{await api(`/roles/${id}/responsibilities`,{method:'PUT',body:b});alert('تم');go('resp',id)}catch(e){alert(e.message)}};
+if($('#sg')){$('#sg').onclick=save(false);$('#ap').onclick=save(true)}
+if($('#sp'))$('#sp').onclick=async()=>{try{await api(`/roles/${id}/permissions`,{method:'PUT',body:{keys:[...document.querySelectorAll('.pk:checked')].map(c=>c.value)}});alert('تم')}catch(e){alert(e.message)}}},
+async dec(){const l=await api('/decisions');$('#m').innerHTML=`<h2>القرارات الإدارية</h2>${l.length?`<table><tr><th>الرقم</th><th>الشخص</th><th>النوع</th><th>السبب</th><th>التاريخ</th><th>التنفيذ</th></tr>${l.map(d=>`<tr><td>${d.decision_no}</td><td>${esc(d.username||'—')}</td><td>${d.type}</td><td>${esc(d.reason)}</td><td>${new Date(d.decided_at).toLocaleDateString('ar')}</td><td>${d.exec_status}</td></tr>`).join('')}</table>`:'<div class="empty card">لا قرارات بعد</div>'}`},
+async audit(){const l=await api('/audit');$('#m').innerHTML=`<h2>سجل التدقيق</h2>${l.length?`<table><tr><th>#</th><th>الإجراء</th><th>الكيان</th><th>المعرّف</th><th>الوقت</th></tr>${l.map(a=>`<tr><td>${a.id}</td><td>${a.action}</td><td>${a.entity}</td><td>${esc(a.entity_id)}</td><td>${new Date(a.created_at).toLocaleString('ar')}</td></tr>`).join('')}</table>`:'<div class="empty card">السجل فارغ</div>'}`},
+async sync(){const l=await api('/sync-logs');$('#m').innerHTML=`<h2>مزامنة Discord</h2><p>حالة البوت: ${ME.bot?'<span class="ok">مُعدّ (لم يُختبر حتى تنجح مزامنة)</span>':'<span class="warn">غير مُعدّ — أضف DISCORD_BOT_TOKEN و GUILD_ID في .env</span>'}</p><p><button class="pri" id="sy">مزامنة الآن</button></p>${l.length?`<table><tr><th>الحالة</th><th>أعضاء</th><th>رتب</th><th>خطأ</th><th>الوقت</th></tr>${l.map(s=>`<tr><td>${s.status}</td><td>${s.members_seen??'—'}</td><td>${s.roles_seen??'—'}</td><td>${esc(s.error||'')}</td><td>${new Date(s.started_at).toLocaleString('ar')}</td></tr>`).join('')}</table>`:'<div class="empty card">لا مزامنات سابقة</div>'}`;
+$('#sy').onclick=async()=>{$('#sy').disabled=true;try{const r=await api('/sync',{method:'POST'});alert(`تمت: ${r.members} عضو، ${r.roles} رتبة`)}catch(e){alert(e.message)}go('sync')}}};
+async function pr(id,b){try{await api('/roles/'+id,{method:'PATCH',body:b})}catch(e){alert(e.message)}}
+boot();
+</script></body></html>
